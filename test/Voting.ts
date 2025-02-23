@@ -283,10 +283,11 @@ describe("Voting", () => {
     });
 
     it("should revert with message if sender is not a voter", async () => {
-      expect(
-        await voting.connect(accountB).addProposal("test proposal")
+      await expect(
+        voting.connect(accountB).addProposal("test proposal")
       ).to.revertedWith("You're not a voter");
     });
+
     it("should revert with message if proposal is an empty string", async () => {
       await expect(voting.connect(accountA).addProposal("")).to.revertedWith(
         "Proposal cannot be empty"
@@ -309,23 +310,38 @@ describe("Voting", () => {
       ({ voting, owner, accountA, accountB } = await loadFixture(
         deployVotingFixture
       ));
-      await voting.addVoter(accountA);
+
+      let voter;
+      try {
+        voter = await voting.getVoter(accountA.address);
+      } catch {
+        voter = null;
+      }
+
+      if (!voter || !voter.isRegistered) {
+        await setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
+        await voting.addVoter(accountA);
+      }
+
       await setWorkflowStatus(
         voting,
         WorkflowStatus.ProposalsRegistrationStarted
       );
       await voting.connect(accountA).addProposal("test proposal");
     });
+
     it("should revert with error if sender is not a voter", async () => {
       await expect(voting.connect(accountB).getOneProposal(1)).to.revertedWith(
         "You're not a voter"
       );
     });
+
     it("should return the proposal related to the id", async () => {
       const result = await voting.connect(accountA).getOneProposal(1);
       expect(result.description).to.be.equal("test proposal");
     });
   });
+
   describe("setVote", () => {
     let voting: any;
     let owner: any;
@@ -336,12 +352,22 @@ describe("Voting", () => {
       ({ voting, owner, accountA, accountB } = await loadFixture(
         deployVotingFixture
       ));
-      await voting.addVoter(accountA);
+
+      const voter = await voting.getVoter(accountA.address);
+      if (!voter.isRegistered) {
+        await setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
+        await voting.addVoter(accountA);
+      }
+
       await setWorkflowStatus(
         voting,
         WorkflowStatus.ProposalsRegistrationStarted
       );
       await voting.connect(accountA).addProposal("test proposal");
+      await setWorkflowStatus(
+        voting,
+        WorkflowStatus.ProposalsRegistrationEnded
+      );
       await setWorkflowStatus(voting, WorkflowStatus.VotingSessionStarted);
     });
 
@@ -388,7 +414,7 @@ describe("Voting", () => {
         }
       });
     });
-    it.only("should revert with an error if sender is not a voter", async () => {
+    it("should revert with an error if sender is not a voter", async () => {
       await expect(voting.connect(accountB).setVote(1)).to.revertedWith(
         "You're not a voter"
       );
@@ -405,17 +431,19 @@ describe("Voting", () => {
       );
     });
     it("should bind the proposal id to the voter", async () => {
-      const voter = await voting.getVoter(accountA);
-      expect(voter.votedProposalId).to.be.equal(1);
+      await voting.connect(accountA).setVote(1);
+      const voter = await voting.connect(accountA).getVoter(accountA);
+      expect(voter.votedProposalId.toString()).to.be.equal("1");
     });
     it("should declare that the voter has voted", async () => {
-      const voter = await voting.getVoter(accountA);
+      await voting.connect(accountA).setVote(1);
+      const voter = await voting.connect(accountA).getVoter(accountA);
       expect(voter.hasVoted).to.be.true;
     });
     it("should increment the vote count for the proposal", async () => {
       await voting.connect(accountA).setVote(1);
-      const proposal = await voting.getOneProposal(1);
-      expect(proposal.voteCount).to.be.equal(1);
+      const proposal = await voting.connect(accountA).getOneProposal(1);
+      expect(proposal.voteCount.toString()).to.be.equal("1");
     });
     it("should emit an event", async () => {
       await expect(voting.connect(accountA).setVote(1))
