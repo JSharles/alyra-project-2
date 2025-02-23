@@ -75,7 +75,7 @@ contract Voting is Ownable {
 
     function addProposal(string calldata _desc) external onlyVoters {
         require(workflowStatus == WorkflowStatus.ProposalsRegistrationStarted, 'Proposals are not allowed yet');
-        require(keccak256(abi.encode(_desc)) != keccak256(abi.encode("")), 'Vous ne pouvez pas ne rien proposer'); // facultatif
+        require(keccak256(abi.encode(_desc)) != keccak256(abi.encode("")), 'Proposal cannot be empty'); // facultatif
         // voir que desc est different des autres
 
         Proposal memory proposal;

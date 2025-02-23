@@ -1,13 +1,17 @@
-# Sample Hardhat Project
+# Objectives
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+The purpose of this test coverage is to cover as much of the codebase as possible based on three key points:
 
-Try running some of the following tasks:
+- Is the contract functional?
+- Is the contract secure?
+- Is the contract optimized in terms of gas consumption?
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.ts
-```
+## Checklist to complete :
+
+- [x] Add a `describe` block for each function
+- [x] Add a `it` block for each instruction related to those functions (it should include modifiers)
+- [ ] Create a mock contract with different types of memory allocation (less optimized)
+- [ ] Test gas consumption by comparing it with the mock contract
+- [ ] Test variable and function visibility
+
+## Current coverage

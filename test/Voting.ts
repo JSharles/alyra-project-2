@@ -197,9 +197,231 @@ describe("Voting", () => {
       });
     });
   });
-  describe("getVoter", () => {});
-  describe("getOneProposal", () => {});
-  describe("addProposal", () => {});
-  describe("setVote", () => {});
+  describe("getVoter", () => {
+    let voting: any;
+    let owner: any;
+    let accountA: any;
+    let accountB: any;
+
+    beforeEach(async () => {
+      ({ voting, owner, accountA, accountB } = await loadFixture(
+        deployVotingFixture
+      ));
+      // await setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
+    });
+    it("should get a voter based on the address if sender is authorized", async () => {
+      await voting.addVoter(accountA);
+      await voting.addVoter(accountB);
+      const result = await voting.connect(accountA).getVoter(accountB);
+      expect(result.isRegistered).to.be.true;
+    });
+
+    it("should revert with message if sender is not authorized", async () => {
+      await voting.addVoter(accountB);
+      expect(voting.connect(accountA).getVoter(accountB)).to.revertedWith(
+        "You're not a voter"
+      );
+    });
+  });
+
+  describe("addProposal", () => {
+    let voting: any;
+    let owner: any;
+    let accountA: any;
+    let accountB: any;
+
+    beforeEach(async () => {
+      ({ voting, owner, accountA, accountB } = await loadFixture(
+        deployVotingFixture
+      ));
+      await voting.addVoter(accountA);
+      await setWorkflowStatus(
+        voting,
+        WorkflowStatus.ProposalsRegistrationStarted
+      );
+    });
+
+    it("should revert with message if the vote status is not correct", async () => {
+      const keys = Object.keys(WorkflowStatus).filter((v) => isNaN(Number(v)));
+      keys.forEach(async (key, index) => {
+        if (key !== "ProposalsRegistrationStarted") {
+          if (key === "RegisteringVoters") {
+            setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Proposals are not allowed yet"
+            );
+          }
+          if (key === "ProposalsRegistrationEnded") {
+            setWorkflowStatus(
+              voting,
+              WorkflowStatus.ProposalsRegistrationEnded
+            );
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Proposals are not allowed yet"
+            );
+          }
+          if (key === "VotingSessionStarted") {
+            setWorkflowStatus(voting, WorkflowStatus.VotingSessionStarted);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Proposals are not allowed yet"
+            );
+          }
+          if (key === "VotingSessionEnded") {
+            setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Proposals are not allowed yet"
+            );
+          }
+          if (key === "VotesTallied") {
+            setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Proposals are not allowed yet"
+            );
+          }
+        }
+      });
+    });
+
+    it("should revert with message if sender is not a voter", async () => {
+      expect(
+        await voting.connect(accountB).addProposal("test proposal")
+      ).to.revertedWith("You're not a voter");
+    });
+    it("should revert with message if proposal is an empty string", async () => {
+      await expect(voting.connect(accountA).addProposal("")).to.revertedWith(
+        "Proposal cannot be empty"
+      );
+    });
+    it("should emit an event when proposal is added", async () => {
+      await expect(voting.connect(accountA).addProposal("test proposal"))
+        .to.emit(voting, "ProposalRegistered")
+        .withArgs(1);
+    });
+  });
+
+  describe("getOneProposal", () => {
+    let voting: any;
+    let owner: any;
+    let accountA: any;
+    let accountB: any;
+
+    beforeEach(async () => {
+      ({ voting, owner, accountA, accountB } = await loadFixture(
+        deployVotingFixture
+      ));
+      await voting.addVoter(accountA);
+      await setWorkflowStatus(
+        voting,
+        WorkflowStatus.ProposalsRegistrationStarted
+      );
+      await voting.connect(accountA).addProposal("test proposal");
+    });
+    it("should revert with error if sender is not a voter", async () => {
+      await expect(voting.connect(accountB).getOneProposal(1)).to.revertedWith(
+        "You're not a voter"
+      );
+    });
+    it("should return the proposal related to the id", async () => {
+      const result = await voting.connect(accountA).getOneProposal(1);
+      expect(result.description).to.be.equal("test proposal");
+    });
+  });
+  describe("setVote", () => {
+    let voting: any;
+    let owner: any;
+    let accountA: any;
+    let accountB: any;
+
+    beforeEach(async () => {
+      ({ voting, owner, accountA, accountB } = await loadFixture(
+        deployVotingFixture
+      ));
+      await voting.addVoter(accountA);
+      await setWorkflowStatus(
+        voting,
+        WorkflowStatus.ProposalsRegistrationStarted
+      );
+      await voting.connect(accountA).addProposal("test proposal");
+      await setWorkflowStatus(voting, WorkflowStatus.VotingSessionStarted);
+    });
+
+    it("should revert with message if the vote status is not correct", async () => {
+      const keys = Object.keys(WorkflowStatus).filter((v) => isNaN(Number(v)));
+      keys.forEach(async (key, index) => {
+        if (key !== "VotingSessionStarted") {
+          if (key === "RegisteringVoters") {
+            setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Voting session havent started yet"
+            );
+          }
+          if (key === "ProposalsRegistrationStarted") {
+            setWorkflowStatus(
+              voting,
+              WorkflowStatus.ProposalsRegistrationStarted
+            );
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Voting session havent started yet"
+            );
+          }
+          if (key === "ProposalsRegistrationEnded") {
+            setWorkflowStatus(
+              voting,
+              WorkflowStatus.ProposalsRegistrationEnded
+            );
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Voting session havent started yet"
+            );
+          }
+          if (key === "VotingSessionEnded") {
+            setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Voting session havent started yet"
+            );
+          }
+          if (key === "VotesTallied") {
+            setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
+            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+              "Voting session havent started yet"
+            );
+          }
+        }
+      });
+    });
+    it.only("should revert with an error if sender is not a voter", async () => {
+      await expect(voting.connect(accountB).setVote(1)).to.revertedWith(
+        "You're not a voter"
+      );
+    });
+    it("should revert with an error with if voter already voted", async () => {
+      await voting.connect(accountA).setVote(1);
+      await expect(voting.connect(accountA).setVote(1)).to.rejectedWith(
+        "You have already voted"
+      );
+    });
+    it("should revert with an error if the proposal id is not retrieved", async () => {
+      await expect(voting.connect(accountA).setVote(2)).to.revertedWith(
+        "Proposal not found"
+      );
+    });
+    it("should bind the proposal id to the voter", async () => {
+      const voter = await voting.getVoter(accountA);
+      expect(voter.votedProposalId).to.be.equal(1);
+    });
+    it("should declare that the voter has voted", async () => {
+      const voter = await voting.getVoter(accountA);
+      expect(voter.hasVoted).to.be.true;
+    });
+    it("should increment the vote count for the proposal", async () => {
+      await voting.connect(accountA).setVote(1);
+      const proposal = await voting.getOneProposal(1);
+      expect(proposal.voteCount).to.be.equal(1);
+    });
+    it("should emit an event", async () => {
+      await expect(voting.connect(accountA).setVote(1))
+        .to.emit(voting, "Voted")
+        .withArgs(accountA.address, 1);
+    });
+  });
   describe("tallyVotes", () => {});
 });
