@@ -165,46 +165,49 @@ describe("Voting", () => {
 
     it("should not to be able to add new voter when status is not ProposalsRegistrationStarted", async () => {
       const keys = Object.keys(WorkflowStatus).filter((v) => isNaN(Number(v)));
-      keys.forEach(async (key, index) => {
+      for (const key of keys) {
         if (key !== "RegisteringVoters") {
           if (key === "ProposalsRegistrationStarted") {
-            setWorkflowStatus(
+            await setWorkflowStatus(
               voting,
               WorkflowStatus.ProposalsRegistrationStarted
             );
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+            await expect(voting.addVoter(accountA.address)).to.be.revertedWith(
               "Voters registration is not open yet"
             );
           }
           if (key === "ProposalsRegistrationEnded") {
-            setWorkflowStatus(
+            await setWorkflowStatus(
               voting,
               WorkflowStatus.ProposalsRegistrationEnded
             );
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+            await expect(voting.addVoter(accountA.address)).to.be.revertedWith(
               "Voters registration is not open yet"
             );
           }
           if (key === "VotingSessionStarted") {
-            setWorkflowStatus(voting, WorkflowStatus.VotingSessionStarted);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+            await setWorkflowStatus(
+              voting,
+              WorkflowStatus.VotingSessionStarted
+            );
+            await expect(voting.addVoter(accountA.address)).to.be.revertedWith(
               "Voters registration is not open yet"
             );
           }
           if (key === "VotingSessionEnded") {
-            setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+            await setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
+            await expect(voting.addVoter(accountA.address)).to.be.revertedWith(
               "Voters registration is not open yet"
             );
           }
           if (key === "VotesTallied") {
-            setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
+            await setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
+            await expect(voting.addVoter(accountA.address)).to.be.revertedWith(
               "Voters registration is not open yet"
             );
           }
         }
-      });
+      }
     });
   });
 
@@ -252,44 +255,56 @@ describe("Voting", () => {
     });
 
     it("should revert with message if the vote status is not correct", async () => {
-      const keys = Object.keys(WorkflowStatus).filter((v) => isNaN(Number(v)));
-      keys.forEach(async (key, index) => {
-        if (key !== "ProposalsRegistrationStarted") {
-          if (key === "RegisteringVoters") {
-            setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
-              "Proposals are not allowed yet"
-            );
-          }
-          if (key === "ProposalsRegistrationEnded") {
-            setWorkflowStatus(
-              voting,
-              WorkflowStatus.ProposalsRegistrationEnded
-            );
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
-              "Proposals are not allowed yet"
-            );
-          }
-          if (key === "VotingSessionStarted") {
-            setWorkflowStatus(voting, WorkflowStatus.VotingSessionStarted);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
-              "Proposals are not allowed yet"
-            );
-          }
-          if (key === "VotingSessionEnded") {
-            setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
-              "Proposals are not allowed yet"
-            );
-          }
-          if (key === "VotesTallied") {
-            setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
-            expect(await voting.addVoter(accountA.address)).to.revertedWith(
-              "Proposals are not allowed yet"
-            );
-          }
-        }
-      });
+      const invalidStates = [
+        {
+          name: "RegisteringVoters",
+          setup: async (voting: any) => {},
+        },
+        {
+          name: "ProposalsRegistrationEnded",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+          },
+        },
+        {
+          name: "VotingSessionStarted",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+            await voting.startVotingSession();
+          },
+        },
+        {
+          name: "VotingSessionEnded",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+            await voting.startVotingSession();
+            await voting.endVotingSession();
+          },
+        },
+        {
+          name: "VotesTallied",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+            await voting.startVotingSession();
+            await voting.endVotingSession();
+            await voting.tallyVotes();
+          },
+        },
+      ];
+
+      for (const state of invalidStates) {
+        const { voting, accountA } = await loadFixture(
+          deployVotingWithVoterAddedFixture
+        );
+        await state.setup(voting);
+        await expect(
+          voting.connect(accountA).addProposal("test proposal")
+        ).to.be.revertedWith("Proposals are not allowed yet");
+      }
     });
 
     it("should revert with message if sender is not a voter", async () => {
@@ -364,47 +379,56 @@ describe("Voting", () => {
     });
 
     it("should revert with message if the vote status is not correct", async () => {
-      const keys = Object.keys(WorkflowStatus).filter((v) => isNaN(Number(v)));
-      keys.forEach(async (key, index) => {
-        if (key !== "VotingSessionStarted") {
-          if (key === "RegisteringVoters") {
-            setWorkflowStatus(voting, WorkflowStatus.RegisteringVoters);
-            expect(await voting.connect(accountA).setVote(1)).to.revertedWith(
-              "Voting session havent started yet"
-            );
-          }
-          if (key === "ProposalsRegistrationStarted") {
-            setWorkflowStatus(
-              voting,
-              WorkflowStatus.ProposalsRegistrationStarted
-            );
-            expect(await voting.connect(accountA).setVote(1)).to.revertedWith(
-              "Voting session havent started yet"
-            );
-          }
-          if (key === "ProposalsRegistrationEnded") {
-            setWorkflowStatus(
-              voting,
-              WorkflowStatus.ProposalsRegistrationEnded
-            );
-            expect(await voting.connect(accountA).setVote(1)).to.revertedWith(
-              "Voting session havent started yet"
-            );
-          }
-          if (key === "VotingSessionEnded") {
-            setWorkflowStatus(voting, WorkflowStatus.VotingSessionEnded);
-            expect(await voting.connect(accountA).setVote(1)).to.revertedWith(
-              "Voting session havent started yet"
-            );
-          }
-          if (key === "VotesTallied") {
-            setWorkflowStatus(voting, WorkflowStatus.VotesTallied);
-            expect(await voting.connect(accountA).setVote(1)).to.revertedWith(
-              "Voting session havent started yet"
-            );
-          }
-        }
-      });
+      const invalidStates = [
+        {
+          name: "RegisteringVoters",
+          setup: async (voting: any) => {},
+        },
+        {
+          name: "ProposalsRegistrationStarted",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+          },
+        },
+        {
+          name: "ProposalsRegistrationEnded",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+          },
+        },
+        {
+          name: "VotingSessionEnded",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+            await voting.startVotingSession();
+            await voting.endVotingSession();
+          },
+        },
+        {
+          name: "VotesTallied",
+          setup: async (voting: any) => {
+            await voting.startProposalsRegistering();
+            await voting.endProposalsRegistering();
+            await voting.startVotingSession();
+            await voting.endVotingSession();
+            await voting.tallyVotes();
+          },
+        },
+      ];
+
+      for (const state of invalidStates) {
+        const { voting, accountA } = await loadFixture(
+          deployVotingWithVoterAddedFixture
+        );
+        // Exécute la transition correspondant à l'état incorrect
+        await state.setup(voting);
+        // On essaie de voter sur la proposition d'indice 0 (qui existe si on est passé par startProposalsRegistering)
+        await expect(voting.connect(accountA).setVote(0)).to.be.revertedWith(
+          "Voting session havent started yet"
+        );
+      }
     });
 
     it("should revert with an error if sender is not a voter", async () => {
@@ -456,5 +480,4 @@ describe("Voting", () => {
         .withArgs(accountA.address, 1);
     });
   });
-  describe("tallyVotes", () => {});
 });

@@ -19,8 +19,10 @@ The purpose of this test coverage is to cover as much of the codebase as possibl
 
 ![screenshot-coverage](doc/Screenshot%202025-02-24%20at%2010.28.00.png)
 
-**Note**
+## Difficulties Encountered
 
-Please note that this test suite is unstable and unreliable. During test execution, some tests randomly fail.
+- I experienced instability issues caused by certain loops used to test reverts in cases of incorrect status. I used ChatGPT to resolve this problem.
 
-I have partially resolved the issue by refactoring certain instructions included in the `foreach` loops into fixtures, but further work is necessary.
+- I encountered issues when randomly adding accounts in `forEach`, which resulted in errors indicating that the voter had already been added. I had to create a fixture instead.
+
+- Setting up these tests took me around ten hours.
